@@ -29,6 +29,7 @@ __DATA__
 		%= stylesheet_nc "mem.css";
 	</head>
 	<body>
+		%= image_nc "../lite-01.pl"
 	</body>
 </html>
 
@@ -36,6 +37,7 @@ __DATA__
 <html>
 	<head>
 		%= stylesheet_nc "./style.css";
+		%= stylesheet_nc "app.css";
 	</head>
 	<body>
 	</body>

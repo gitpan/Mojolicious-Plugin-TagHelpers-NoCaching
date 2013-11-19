@@ -2,9 +2,10 @@ package Mojolicious::Plugin::TagHelpers::NoCaching;
 
 use Mojo::Base 'Mojolicious::Plugin';
 use Mojo::URL;
-use Mojo::Path;
+use File::Spec;
+use Cwd;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub register {
 	my ($plugin, $app, $cfg) = @_;
@@ -49,6 +50,23 @@ sub register {
 	});
 }
 
+sub _href2absolute {
+	my ($controller, $href) = @_;
+	
+	$href =~ s/\?.+//; # query params
+	if ($href =~ m!^(?:/|[a-z]+://)!i) {
+		# absolute
+		return $href;
+	}
+	
+	my $path = $controller->req->url->path;
+	$path =~ s![^/]+$!!;
+	$path = '/' if $path eq '';
+	$href = $path . $href;
+	
+	return $href;
+}
+
 sub _href2filepath {
 	my ($controller, $href) = @_;
 	
@@ -63,18 +81,6 @@ sub _href2filepath {
 		
 		$href = $url->path;
 	}
-	else {
-		# remove any query parameters
-		$href =~ s/\?.+//;
-		
-		if ($href !~ m!^/!) {
-			# relative url
-			my $path = $controller->req->url->path;
-			$path =~ s![^/]+$!!;
-			$path = '/' if $path eq '';
-			$href = $path . $href;
-		}
-	}
 	
 	my $static =$controller->app->static;
 	my $asset = $static->file($href)
@@ -83,10 +89,10 @@ sub _href2filepath {
 	$asset->is_file
 		or return;
 	
-	my $path = Mojo::Path->new($asset->path)->canonicalize;
+	my $path = File::Spec->canonpath(Cwd::realpath($asset->path)||return);
 	my $ok;
 	for my $p (@{$static->paths}) {
-		$ok = $path->contains($p)
+		$ok = index($path, $p) == 0
 			and last;
 	}
 	# check is found file is inside public directory
@@ -103,11 +109,13 @@ sub _nc_key {
 sub _nc_href {
 	my ($self, $controller, $href) = @_;
 	
-	unless (exists $self->{url2path}{$href}) {
-		$self->{url2path}{$href} = _href2filepath($controller, $href);
+	my $abs_href = _href2absolute($controller, $href);
+	
+	unless (exists $self->{url2path}{$abs_href}) {
+		$self->{url2path}{$abs_href} = _href2filepath($controller, $abs_href);
 	}
 	
-	my $path = $self->{url2path}{$href}
+	my $path = $self->{url2path}{$abs_href}
 		or return $href;
 	
 	unless (exists $self->{path2key}{$path}) {
@@ -158,9 +166,9 @@ Mojolicious::Plugin::TagHelpers::NoCaching - Force images, styles, js reloading 
 
 =head1 DESCRIPTION
 
-When you updating your project on production with new version, new version often contains changed styles, javascript, images.
+When you updating your project on production server with new version, new version often contains changed styles, javascript, images.
 You fetched all new files from the repository, restarted application, but browsers still shows you old images, your html looks like
-a shit (because of old styles on new html), javascript events doesn't work (because of the old js in use). All of this because your
+a shit (because of the old styles on new html), javascript events doesn't work (because of the old js in use). All of this because your
 browser cached old version of included files and don't want to reload it.
 
 If you ever come across this, this module will help you.
@@ -169,9 +177,9 @@ If you ever come across this, this module will help you.
 
 This plugin contains several helpers described below. All this helpers are alternatives for helpers with same name (but without _nc suffix)
 from L<Mojolicious::Plugin::TagHelpers>. "_nc" suffix in helpers names means "no caching". Behaviour of this helpers are identical except
-that helpers from this module adds query parameter with file version for each file included with helpers described below. For now query 
+that helpers from this module adds query parameter with file version for each file included with help of them. For now query 
 parameter is modification time of the file. So we can guarantee that when file will be modified query parameter will be changed and file will be reloaded by
-the browser. This works only for local files included with absolute url ("http://host/file.css"), absolute path ("/file.css") or relative path ("file.css").
+the browser on next request. This works only for server local files included with absolute url ("http://host/file.css"), absolute path ("/file.css") or relative path ("file.css").
 And they will become something like "http://host/file.css?nc=1384766621", "/file.css?nc=1384766621", "file.css"?nc=1384766621" respectively.
 
 One important thing is that query parameter for modified file will be changed only after application reload, because modification time for included files
