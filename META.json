@@ -32,7 +32,7 @@
       },
       "runtime" : {
          "requires" : {
-            "Mojolicious" : "2.49"
+            "Mojolicious" : "3.12"
          }
       }
    },
@@ -42,5 +42,5 @@
          "url" : "https://github.com/olegwtf/p5-Mojolicious-Plugin-TagHelpers-NoCaching"
       }
    },
-   "version" : "0.02"
+   "version" : "0.03"
 }
